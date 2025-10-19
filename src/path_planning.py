@@ -53,8 +53,9 @@ class PathPlanning:
                 midpoints.append((mx, my))
 
         #  2: one side visible 
-        elif blue_cones or yellow_cones:
-            track_width = 3.0  
+        # elif blue_cones or yellow_cones:
+        elif (blue_cones and len(blue_cones) < 2) or (yellow_cones and len(yellow_cones) < 2):
+            track_width = 3.0
             cones = blue_cones if blue_cones else yellow_cones
             for c in cones:
                 if blue_cones:
@@ -72,6 +73,31 @@ class PathPlanning:
                     my = (c.y + blue_guess[1]) / 2
 
                 midpoints.append((mx, my))  
+        
+        elif len(blue_cones) >= 2 or len(yellow_cones) >= 2:
+            track_width = 3.0
+            side_cones = blue_cones if blue_cones else yellow_cones
+            side_cones.sort(key=lambda c: self._dist(c))
+
+            for i in range(len(side_cones) - 1):
+                c1 = side_cones[i]
+                c2 = side_cones[i + 1]
+
+                # Estimate track direction between consecutive cones
+                heading = math.atan2(c2.y - c1.y, c2.x - c1.x)
+
+                # Offset to estimate opposite side
+                if blue_cones:  # blue = left, offset to right
+                    dx = math.cos(heading - math.pi / 2)
+                    dy = math.sin(heading - math.pi / 2)
+                else:  # yellow = right, offset to left
+                    dx = math.cos(heading + math.pi / 2)
+                    dy = math.sin(heading + math.pi / 2)
+
+                # Midpoint between real and estimated cone
+                mx = (c1.x + (c1.x + track_width * dx)) / 2
+                my = (c1.y + (c1.y + track_width * dy)) / 2
+                midpoints.append((mx, my))
 
         #  3: no cones visible 
         else:
@@ -105,7 +131,7 @@ class PathPlanning:
                 heading = self.car_pose.yaw
 
             step = 0.5
-            for k in range(10):  
+            for k in range(5):  
                 x_ext = midpoints[-1][0] + step * k * math.cos(heading)
                 y_ext = midpoints[-1][1] + step * k * math.sin(heading)
                 path.append((x_ext, y_ext))
